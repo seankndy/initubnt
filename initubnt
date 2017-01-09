@@ -215,7 +215,7 @@ while (true)
         //
         // apply config, reboot
         //
-        msg('notice', "Applying config, rebooting...", false);
+        msg('notice', "Saving, rebooting... ", false);
         if (($ret = ubnt_apply_config($ussh)) == -1)
             echo "no response after reboot\n";
         else if ($ret)
@@ -388,10 +388,15 @@ function ubnt_apply_config(UBNT_SSH $ussh)
     $ussh->cmd("reboot");
     sleep(5);
     
-    // wait up to 120 seconds for it to come back
-    $max = 120;
-    for ($i = 1; $i < $max && !ubnt_is_alive($ussh->getIp()); $i++)
-        sleep(1);
+    // try 90 times (wait for come back)
+    $max = 90;
+    for ($i = 1; $i <= $max && !ubnt_is_alive($ussh->getIp()); $i++)
+    {
+        print_spinner();
+        usleep(200000);
+    }
+    print_spinner(true);
+    
     if (!ubnt_is_alive($ussh->getIp()) && $i == $max)
            return -1;
     
