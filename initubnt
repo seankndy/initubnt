@@ -9,9 +9,8 @@ $config = [
     'ssh_try_wait'      => 2,
     'unii_actvn_coname' => 'xxx',
     'unii_actvn_key'    => 'xxx',
-    'alive_cmd'         => 'fping -p 100 -C 1 %host% >/dev/null 2>&1',
-    'firmware_dir'      => '/home/rob/initubnt/firmware',
-    'config_dir'        => '/home/rob/initubnt/configs'
+    'firmware_dir'      => '/home/sean/initubnt/firmware',
+    'config_dir'        => '/home/sean/initubnt/configs'
 ];
 
 $skip_firmware_update = false;
@@ -29,20 +28,23 @@ if (isset($options['c'])) $skip_config_load = true;
 if ($skip_firmware_update && $skip_unii_activation && $skip_config_load)
     die("error: all skips activated, nothing to do!\n");
 
+$config['default_ip'] = 'vcn.com';
+
 $operating = true;
 while (true)
 {
-    if (!ubnt_is_alive($config['default_ip']))
+    msg('notice', "Waiting for device @ {$config['default_ip']}... ", false);
+    while (true)
     {
-        $operating = true;
-        sleep(2);
-        continue;
+        print_spinner();
+        if (!ubnt_is_alive($config['default_ip']))
+            $operating = true;
+        else if ($operating)
+            break;
+        usleep(200000);
     }
-    else if (!$operating)  
-    {
-        sleep(2);
-        continue;
-    }
+    print_spinner(true);
+    echo "ok\n";
     
     msg('notice', "Device at {$config['default_ip']} is alive, waiting {$config['ssh_init_wait']}s for boot.");
     sleep($config['ssh_init_wait']);
@@ -103,7 +105,7 @@ while (true)
             msg('error', "Firmware file non-existant: $firmware_file");
             continue;
         }
-        msg('notice', "Uploading firmware at $firmware_file and rebooting...", false);
+        msg('notice', "Uploading firmware at $firmware_file and rebooting... ", false);
         if (($ret = ubnt_update_firmware($ussh, $firmware_file)) == -1)
         {
             echo "no response after update\n";
@@ -235,13 +237,14 @@ function msg($type, $msg, $nl = true)
 
 function ubnt_is_alive($ip)
 {
-    global $config;
-    
-    $cmd = str_replace('%host%', $ip, $config['alive_cmd']);
-    $output = [];
-    $retval = null;
-    exec($cmd, $output, $retval);
-    return ($retval == 0);
+    if (!($fp = @fsockopen($ip, 22, $errno, $errstr, 1)))
+    {
+        if ($errno == 111)
+            return true;
+        return false;
+    }
+    fclose($fp);
+    return true;
 }
 
 function ubnt_get_model(UBNT_SSH $ussh, $ip = null)
@@ -267,7 +270,11 @@ function ubnt_update_firmware(UBNT_SSH $ussh, $file)
         // wait up to 120 seconds for it to come back
         $max = 120;
         for ($i = 1; $i < $max && !ubnt_is_alive($ussh->getIp()); $i++)
+        {
+            print_spinner();
             sleep(1);
+        }
+        print_spinner(true);
         if (!ubnt_is_alive($ussh->getIp()) && $i == $max)
             return -1;
         return 1;
@@ -388,6 +395,27 @@ class UBNT_SSH
     }
 }
 
+function print_spinner($reset = false)
+{
+    $spinner = ["|", "/", "-", "\\"];
+    static $last = null;
+    if ($reset)
+    {
+        if ($last !== null)
+            echo "\x08\x08\x08   \x08\x08\x08";
+        $last = null;
+        return;
+    }
+    if ($last !== null)
+    {
+        echo "\x08\x08\x08";
+        $next = $last == count($spinner)-1 ? 0 : $last+1;
+    }
+    else
+        $next = 0;
+    echo "[" . ($spinner[$last = $next]) . "]";
+}
+
 function usage()
 {
     die(
@@ -398,4 +426,5 @@ function usage()
         "    -h Show this help\n"
     );
 }
+
 
