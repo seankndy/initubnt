@@ -83,15 +83,18 @@ while (true)
     //
     // fetch model of radio
     //
-    msg('notice', "Fetching model of device...", false);
-    if (!($model = ubnt_get_model($ussh)))
+    msg('notice', "Fetching stats of device...", false);
+    if (!($stats = ubnt_get_stats($ussh)))
     {
-        msg('error', "failed to get model from device");
+        msg('error', "failed to get stats from device");
         continue;
     }
     else
-        echo "$model\n";
-
+    {
+        $model = trim($stats->host->devmodel);
+        echo "ok ($model, LAN Speed/Duplex: " . get_iface_speed_duplex($stats, 'eth0') . ")\n";
+    }
+    
     //
     // update firmware
     //
@@ -185,7 +188,7 @@ while (true)
         // check unii activation
         //
         msg('notice', "Checking UNII activation...", false);
-        if (($unii_activated_rv = ubnt_is_unii_activated($ussh)) < 0)
+        if (($unii_activated_rv = ubnt_is_unii_activated($ussh, $model)) < 0)
             echo "unknown!\n";
         else if ($unii_activated_rv == 1)
             echo "already active.\n";
@@ -198,7 +201,7 @@ while (true)
         if ($unii_activated_rv != 1)
         {
             msg('notice', "Applying UNII activation...", false);
-            if (($rv = ubnt_apply_unii_activation($ussh, $config['unii_actvn_coname'], $config['unii_actvn_key'])) < 0)
+            if (($rv = ubnt_apply_unii_activation($ussh, $model, $config['unii_actvn_coname'], $config['unii_actvn_key'])) < 0)
                 echo "unknown!\n";
             else if ($rv == 1)
                 echo "successful activation.\n";
@@ -245,7 +248,7 @@ function ubnt_is_alive($ip)
     return true;
 }
 
-function ubnt_get_model(UBNT_SSH $ussh, $ip = null)
+function ubnt_get_stats(UBNT_SSH $ussh, $ip = null)
 {
     global $config;
     
@@ -254,9 +257,19 @@ function ubnt_get_model(UBNT_SSH $ussh, $ip = null)
     $output = $ussh->cmd("/usr/www/status.cgi");
     $output = preg_replace('/^Content\-Type:\s+(.+?)[\r\n]+/im', '', $output);
     if ($stats = json_decode($output))
+        return $stats;
+    return null;
+}
+
+function get_iface_speed_duplex($stats, $iface)
+{
+    if (!isset($stats->interfaces)) return "";
+    foreach ($stats->interfaces as $i)
     {
-        return trim($stats->host->devmodel);
+        if ($i->ifname == $iface)
+            return $i->status->speed . "/" . ($i->status->duplex ? 'FDX' : 'HDX');
     }
+    return "";
 }
 
 function ubnt_update_firmware(UBNT_SSH $ussh, $file)
@@ -280,38 +293,89 @@ function ubnt_update_firmware(UBNT_SSH $ussh, $file)
     return 0;
 }
 
-{
 function ubnt_upload_config(UBNT_SSH $ussh, $file)
+{
     if ($ussh->send_file($file, "/tmp/system.cfg"))
         return true;
     return false;
 }
 
-function ubnt_is_unii_activated(UBNT_SSH $ussh)
+function ubnt_is_unii_activated(UBNT_SSH $ussh, $model)
 {
-    $output = $ussh->cmd("ubntbox fcc-lock -s");
-    if (preg_match('/are (enabled|disabled)\.$/', trim($output), $m))
+    if (strstr($model, 'M5'))
+        $cmd = "ubntbox dfs-unlock 2>&1";
+    else
+        $cmd = "ubntbox fcc-lock -s 2>&1";
+    $output = $ussh->cmd($cmd);
+    if (strstr($model, 'M5'))
     {
-        if ($m[1] == 'enabled')
+        /*
+         * FCC DFS frequencies are enabled.
+         * FCC DFS NEW GRANT is enabled
+         */
+        $dfs_freq = $dfs_new_grant = null;
+        foreach (preg_split('/[\r\n]+/', $output) as $line)
+        {
+            if (preg_match('/FCC DFS frequencies are (enabled|disabled)/', ($line = trim($line)), $m))
+            {
+                if ($m[1] == 'enabled')
+                    $dfs_freq = true;
+                else if ($m[1] == 'disabled')
+                    $dfs_freq = false;
+            }
+            else if (preg_match('/FCC DFS NEW GRANT is (enabled|disabled)/', $line, $m))
+            {
+                if ($m[1] == 'enabled')
+                    $dfs_new_grant = true;
+                else if ($m[1] == 'disabled')
+                    $dfs_new_grant = false;
+            }
+        }
+        if ($dfs_freq === true && $dfs_new_grant == true)
             return 1;
-        else if ($m[1] == 'disabled')
-            return 0;
+        else if ($dfs_freq === null || $dfs_new_grant === null)
+            return -1;
+        else
+           return 0;
     }
-    return -1;
+    else
+    {
+        if (preg_match('/are (enabled|disabled)\.$/', trim($output), $m))
+        {
+            if ($m[1] == 'enabled')
+                return 1;
+            else if ($m[1] == 'disabled')
+                return 0;
+        }
+        return -1;
+    }
 }
 
-function ubnt_apply_unii_activation(UBNT_SSH $ussh, $coname, $key)
+function ubnt_apply_unii_activation(UBNT_SSH $ussh, $model, $coname, $key)
 {
-    //echo "\ncmd: ubntbox fcc-lock -c unii \"$coname\" $key\n";
-    $output = trim($ussh->cmd("ubntbox fcc-lock -c unii \"$coname\" $key"));
-    sleep(3);
-    // Switching FCC UNII rules from activated to deactivated
-    if (preg_match('/from (activated|deactivated|deactivatd) to (activated|deactivated|deactivatd)/', $output, $m))
+    if (strstr($model, 'M5'))
+        $cmd = "ubntbox dfs-unlock -u \"$coname\" $key";
+    else
+        $cmd = "ubntbox fcc-lock -c unii \"$coname\" $key";
+
+    $output = trim($ussh->cmd($cmd));
+    sleep(2);
+    if (strstr($model, 'M5'))
     {
-        if (($m[1] == 'deactivated' || $m[1] == 'deactivatd') && $m[2] == 'activated')
+        if (strstr($output, 'Enabling FCC DFS NEW GRANT'))
             return 1;
-        else if ($m[1] == 'activated' && ($m[2] == 'dectivated' || $m[2] == 'dectivatd'))
-            return 0;
+        return 0;
+    }
+    else
+    {
+        // Switching FCC UNII rules from activated to deactivated
+        if (preg_match('/from (activated|deactivated|deactivatd) to (activated|deactivated|deactivatd)/', $output, $m))
+        {
+            if (($m[1] == 'deactivated' || $m[1] == 'deactivatd') && $m[2] == 'activated')
+                return 1;
+            else if ($m[1] == 'activated' && ($m[2] == 'dectivated' || $m[2] == 'dectivatd'))
+                return 0;
+        }
     }
     return -1;
 }
