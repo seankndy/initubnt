@@ -94,7 +94,7 @@ while (true)
         $model = trim($stats->host->devmodel);
         if (strstr($model, 'M5'))
             $model .= ' ' . trim($stats->host->fwprefix);
-        echo "ok ($model, LAN Speed/Duplex: " . get_iface_speed_duplex($stats, 'eth0') . ")\n";
+        echo "ok ($model)\n";
     }
     
     //
@@ -226,7 +226,7 @@ while (true)
     
     $operating = false;
     
-    msg('notice', 'completed');
+    msg('notice', "completed (LAN Speed/Duplex: " .  get_iface_speed_duplex($stats, 'eth0') . ")");
 }
 
 function msg($type, $msg, $nl = true)
@@ -263,13 +263,30 @@ function ubnt_get_stats(UBNT_SSH $ussh, $ip = null)
     return null;
 }
 
-function get_iface_speed_duplex($stats, $iface)
+function get_iface_speed_duplex($stats, $iface, $color = true)
 {
     if (!isset($stats->interfaces)) return "";
     foreach ($stats->interfaces as $i)
     {
         if ($i->ifname == $iface)
-            return $i->status->speed . "/" . ($i->status->duplex ? 'FDX' : 'HDX');
+        {
+            if ($color)
+            {
+                $ret = "";
+                if ($i->status->duplex)
+                    $ret .= "\033[32m";
+                else
+                    $ret .= "\033[41m";
+                $ret .= $i->status->speed . "/" . ($i->status->duplex ? 'FDX' : 'HDX');
+                if ($i->status->duplex)
+                    $ret .= "\033[0m";
+                else
+                    $ret .= "\033[0m";
+                return $ret;
+            }
+            else
+                return $i->status->speed . "/" . ($i->status->duplex ? 'FDX' : 'HDX');
+        }
     }
     return "";
 }
@@ -280,8 +297,8 @@ function ubnt_update_firmware(UBNT_SSH $ussh, $file)
     {
         $output = $ussh->cmd("/sbin/fwupdate -m");
         sleep(5);
-        // try 90 times for device to come back
-        $max = 90;
+        // try 120 times for device to come back
+        $max = 120;
         for ($i = 1; $i <= $max && !ubnt_is_alive($ussh->getIp()); $i++)
         {
             print_spinner();
