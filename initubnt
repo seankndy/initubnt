@@ -278,15 +278,15 @@ function ubnt_update_firmware(UBNT_SSH $ussh, $file)
     {
         $output = $ussh->cmd("/sbin/fwupdate -m");
         sleep(5);
-        // try 60 times for device to come back
-        $max = 60;
-        for ($i = 1; $i < $max && !ubnt_is_alive($ussh->getIp()); $i++)
+        // try 90 times for device to come back
+        $max = 90;
+        for ($i = 1; $i <= $max && !ubnt_is_alive($ussh->getIp()); $i++)
         {
             print_spinner();
             usleep(200000);
         }
         print_spinner(true);
-        if (!ubnt_is_alive($ussh->getIp()) && $i == $max)
+        if (!ubnt_is_alive($ussh->getIp()) && $i == $max+1)
             return -1;
         return 1;
     }
@@ -397,7 +397,7 @@ function ubnt_apply_config(UBNT_SSH $ussh)
     }
     print_spinner(true);
     
-    if (!ubnt_is_alive($ussh->getIp()) && $i == $max)
+    if (!ubnt_is_alive($ussh->getIp()) && $i == $max+1)
            return -1;
     
     return 1;
