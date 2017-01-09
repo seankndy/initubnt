@@ -16,7 +16,7 @@ and config at:
 
     /home/sean/initubnt/configs/Powerbeam 5AC 500/system.cfg
 
-The script is designed to remain running continuously and prints output of what it is doing
-as it finds and progresses along a radio initializing.
+The script is designed to remain running continuously and prints output to the terminal of what it is doing
+as it finds and progresses along a radio initialization.
 
 See top of initubnt script for various config options.
