@@ -16,6 +16,11 @@ and config at:
 
     /home/sean/initubnt/configs/Powerbeam 5AC 500/system.cfg
 
+Note that for M5 radios, the fwprefix is appended to the model name.  So if the model is "NanoBridge M5", the
+fwprefix (XM or XW) is appended to the end to make it "NanoBridge M5 XW".
+
+The script can also apply a DFS/FCC/UNII lock activation key to the radio.
+    
 The script is designed to remain running continuously and prints output to the terminal of what it is doing
 as it finds and progresses along a radio initialization.
 
