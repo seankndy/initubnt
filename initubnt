@@ -92,6 +92,8 @@ while (true)
     else
     {
         $model = trim($stats->host->devmodel);
+        if (strstr($model, 'M5'))
+            $model .= ' ' . trim($stats->host->fwprefix);
         echo "ok ($model, LAN Speed/Duplex: " . get_iface_speed_duplex($stats, 'eth0') . ")\n";
     }
     
