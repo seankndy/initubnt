@@ -28,8 +28,6 @@ if (isset($options['c'])) $skip_config_load = true;
 if ($skip_firmware_update && $skip_unii_activation && $skip_config_load)
     die("error: all skips activated, nothing to do!\n");
 
-$config['default_ip'] = 'vcn.com';
-
 $operating = true;
 while (true)
 {
@@ -267,12 +265,12 @@ function ubnt_update_firmware(UBNT_SSH $ussh, $file)
     {
         $output = $ussh->cmd("/sbin/fwupdate -m");
         sleep(5);
-        // wait up to 120 seconds for it to come back
-        $max = 120;
+        // try 60 times for device to come back
+        $max = 60;
         for ($i = 1; $i < $max && !ubnt_is_alive($ussh->getIp()); $i++)
         {
             print_spinner();
-            sleep(1);
+            usleep(200000);
         }
         print_spinner(true);
         if (!ubnt_is_alive($ussh->getIp()) && $i == $max)
@@ -282,8 +280,8 @@ function ubnt_update_firmware(UBNT_SSH $ussh, $file)
     return 0;
 }
 
-function ubnt_upload_config(UBNT_SSH $ussh, $file)
 {
+function ubnt_upload_config(UBNT_SSH $ussh, $file)
     if ($ussh->send_file($file, "/tmp/system.cfg"))
         return true;
     return false;
