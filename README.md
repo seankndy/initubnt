@@ -1,7 +1,7 @@
 # initubnt
 Script to aid in initial setup deployments of Ubiquiti Networks station radios.
 
-PHP w/ SSH2 extension required.  Uses 'fping' tool to check for connectivity to radio.
+PHP w/ SSH2 extension required.
 
 The script can update firmware, apply FCC UNII activiation code and also upload a base config file.
 
