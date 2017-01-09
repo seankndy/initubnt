@@ -353,10 +353,11 @@ function ubnt_is_unii_activated(UBNT_SSH $ussh, $model)
 
 function ubnt_apply_unii_activation(UBNT_SSH $ussh, $model, $coname, $key)
 {
+    $key = str_replace('-', '', $key);
     if (strstr($model, 'M5'))
-        $cmd = "ubntbox dfs-unlock -u \"$coname\" $key";
+        $cmd = "ubntbox dfs-unlock -u \"$coname\" $key 2>&1";
     else
-        $cmd = "ubntbox fcc-lock -c unii \"$coname\" $key";
+        $cmd = "ubntbox fcc-lock -c unii \"$coname\" $key 2>&1";
 
     $output = trim($ussh->cmd($cmd));
     sleep(2);
