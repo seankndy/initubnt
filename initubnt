@@ -6,7 +6,7 @@ $config = [
     'default_pass'      => 'ubnt',
     'ssh_init_wait'     => 8,
     'ssh_tries'         => 5,
-    'ssh_try_wait'      => 2,
+    'ssh_try_wait'      => 10,
     'unii_actvn_coname' => 'xxx',
     'unii_actvn_key'    => 'xxx',
     'firmware_dir'      => '/home/sean/initubnt/firmware',
@@ -57,7 +57,7 @@ while (true)
         msg('notice', "SSHing into device...", false);
         if (!$ussh->connect())
         {
-            echo "failed, attempt $try/{$config['ssh_tries']}";
+            echo "failed, attempt $try/{$config['ssh_tries']}\n";
             sleep($config['ssh_try_wait']);
             continue;
         }
@@ -139,7 +139,7 @@ while (true)
             msg('notice', "SSHing into device...", false);
             if (!$ussh->connect())
             {
-                echo "failed, attempt $try/{$config['ssh_tries']}";
+                echo "failed, attempt $try/{$config['ssh_tries']}\n";
                 sleep($config['ssh_try_wait']);
                 continue;
             }
