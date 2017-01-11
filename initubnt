@@ -102,7 +102,7 @@ while (true)
         if ($model)
         {
             if (strstr($model, 'M5'))
-                $model .= ' ' . trim($stats->host->fwprefix);
+                $model .= ' ' . (isset($stats->host->fwprefix) ? trim($stats->host->fwprefix) : 'XM');
             echo "ok ($model)\n";
         }
     }
