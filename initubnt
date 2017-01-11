@@ -91,10 +91,20 @@ while (true)
     }
     else
     {
-        $model = trim($stats->host->devmodel);
-        if (strstr($model, 'M5'))
-            $model .= ' ' . trim($stats->host->fwprefix);
-        echo "ok ($model)\n";
+        $model = null;
+        if (isset($stats->host->devmodel))
+            $model = trim($stats->host->devmodel);
+        else if (isset($stats->host->hostname))
+            $model = trim($stats->host->hostname);
+        else
+            msg('error', 'failed to determine model');
+
+        if ($model)
+        {
+            if (strstr($model, 'M5'))
+                $model .= ' ' . trim($stats->host->fwprefix);
+            echo "ok ($model)\n";
+        }
     }
     
     //
