@@ -3,7 +3,7 @@
 require('vendor/autoload.php');
 require('config.php');
 
-use phpseclib\Net\Net_SFTP;
+use phpseclib\Net\SFTP;
 
 $skip_firmware_update = false;
 $skip_unii_activation = false;
@@ -497,7 +497,7 @@ class UBNT_SSH
 
     public function connect()
     {
-        $this->ssh = new Net_SFTP($this->ip, 22, 5);
+        $this->ssh = new SFTP($this->ip, 22, 5);
         if (!$this->ssh->login($this->user, $this->pass)) {
             $this->ssh = null;
             return false;
