@@ -3,7 +3,9 @@
 require('vendor/autoload.php');
 require('config.php');
 
-use phpseclib\Net\SFTP;
+use phpseclib\Net\SSH2;
+use phpseclib\Net\SCP;
+
 
 $skip_firmware_update = false;
 $skip_unii_activation = false;
@@ -503,7 +505,7 @@ class UBNT_SSH
 
     public function connect()
     {
-        $this->ssh = new SFTP($this->ip, 22, 5);
+        $this->ssh = new SSH2($this->ip, 22, 5);
         if (!$this->ssh->login($this->user, $this->pass)) {
             $this->ssh = null;
             return false;
@@ -556,15 +558,15 @@ class UBNT_SSH
         */
     }
 
-    public function send_file($local, $remote, $mode = 0644)
+    public function send_file($local, $remote)
     {
         if (!file_exists($local))
             return false;
 
-        if ($this->ssh->put($remote, $local, SFTP::SOURCE_LOCAL_FILE)) {
-            if (!$this->ssh->chmod($mode, $remote)) {
-                return true;
-            }
+        $scp = new SCP($this->ssh);
+
+        if ($scp->put($remote, $local, SFTP::SOURCE_LOCAL_FILE)) {
+            return true;
         }
         return false;
 
