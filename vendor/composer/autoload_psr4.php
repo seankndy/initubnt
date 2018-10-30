@@ -7,4 +7,8 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'phpseclib\\' => array($vendorDir . '/phpseclib/phpseclib/phpseclib'),
+    'Symfony\\Component\\EventDispatcher\\' => array($vendorDir . '/symfony/event-dispatcher'),
+    'Socket\\Raw\\' => array($vendorDir . '/clue/socket-raw/src'),
+    'SeanKndy\\Daemon\\' => array($vendorDir . '/seankndy/daemon/src'),
+    'Psr\\Log\\' => array($vendorDir . '/psr/log/Psr/Log'),
 );

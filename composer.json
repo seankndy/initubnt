@@ -11,8 +11,16 @@
         "ubiquiti networks",
         "ubnt"
     ],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/seankndy/Daemon"
+        }
+    ],
     "require": {
+        "seankndy/Daemon": "dev-master",
         "php": ">=7.1.0",
-        "phpseclib/phpseclib": "^2.0"
+        "phpseclib/phpseclib": "^2.0",
+        "clue/socket-raw": "^1.3"
     }
 }

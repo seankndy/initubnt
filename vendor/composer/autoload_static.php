@@ -15,12 +15,38 @@ class ComposerStaticInitd2b51f2a3e216793703daa2f42947968
         array (
             'phpseclib\\' => 10,
         ),
+        'S' => 
+        array (
+            'Symfony\\Component\\EventDispatcher\\' => 34,
+            'Socket\\Raw\\' => 11,
+            'SeanKndy\\Daemon\\' => 16,
+        ),
+        'P' => 
+        array (
+            'Psr\\Log\\' => 8,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
         'phpseclib\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpseclib/phpseclib/phpseclib',
+        ),
+        'Symfony\\Component\\EventDispatcher\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/symfony/event-dispatcher',
+        ),
+        'Socket\\Raw\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/clue/socket-raw/src',
+        ),
+        'SeanKndy\\Daemon\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/seankndy/daemon/src',
+        ),
+        'Psr\\Log\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/psr/log/Psr/Log',
         ),
     );
 

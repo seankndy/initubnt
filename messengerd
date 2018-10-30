@@ -1,0 +1,88 @@
+#!/usr/bin/env php
+<?php
+require('vendor/autoload.php');
+require('config.php');
+
+set_time_limit(0);
+
+// remove old socket file
+@unlink($config['messengerd_sock']);
+
+// create socket for comm
+try {
+    $socket = (new \Socket\Raw\Factory())->createUnix();
+    $socket->bind($config['messengerd_sock']);
+    $socket->listen();
+    $socket->setBlocking(false);
+} catch (Exception $e) {
+    die("Failed to create/bind/listen socket: " . $e->getMessage() . "\n");
+}
+
+$daemon = new SeanKndy\Daemon\Daemon();
+$daemon->addProducer(new class($socket) implements SeanKndy\Daemon\Tasks\Producer {
+    private $socket;
+
+    public function __construct($socket) {
+        $this->socket = $socket;
+    }
+
+    public function produce() {
+        try {
+            if ($this->socket->selectRead() && $client = $this->socket->accept()) {
+                return new class($client) implements SeanKndy\Daemon\Tasks\Task {
+                    protected $client;
+
+                    public function __construct($client) {
+                        $this->client = $client;
+                    }
+
+                    public function init() : void {
+                        ;
+                    }
+
+                    public function run() : int {
+                        $msg = '';
+                        while ($buf = $this->client->read(4096, PHP_NORMAL_READ)) {
+                            $msg .= $buf;
+                        }
+                        $this->client->close();
+
+                        slack_post_message(trim($msg));
+
+                        return 0;
+                    }
+
+                    public function finish(int $status) : void {
+                        ;
+                    }
+                };
+            }
+        } catch (Exception $e) {
+            echo "Error: " . $e->getMessage() . "\n";
+        }
+    }
+});
+$daemon->start();
+
+function slack_post_message($msg) {
+    global $config;
+
+    $data = new StdClass();
+    $data->text = $msg;
+    $data->channel = $config['slack_channel'];
+    $data->username = "initubnt";
+    $payload = json_encode($data);
+    $ch = curl_init($config['slack_incoming_webhook_url']);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($payload)
+    ]);
+    $result = trim(curl_exec($ch));
+    if ($result == 'ok') {
+        return true;
+    }
+    return false;
+}

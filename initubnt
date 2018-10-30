@@ -266,7 +266,7 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
 {
     global $operating, $config, $output_prepend, $daemonize;
 
-    static $lastMsg = ''; // only for slack integration
+    static $lastMsg = '';
 
     $output = '';
     if ($type === null) {
@@ -275,7 +275,7 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
         $output .= "$type: $msg" . ($nl ? "\n" : "");
     }
 
-    if ($config['slack_incoming_webhook_url'] && !$cliOnly) {
+    if (file_exists($config['messengerd_sock']) && !$cliOnly) {
         if (substr($msg, -3) == '...') {
             $lastMsg = $output;
         } else {
@@ -285,9 +285,12 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
             } else {
                 $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
             }
-            slack_post_message($config['slack_channel'], $output);
+
+            $socket = (new \Socket\Raw\Factory())->createClient('unix://' . $config['messengerd_sock']);
+            $socket->write($output);
+            $socket->close();
         }
-    } else if (!$daemonize) {
+    } else if (!$daemonize && !$config['slack_incoming_webhook_url']) {
         $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
         echo $output;
     }
@@ -594,30 +597,6 @@ function print_spinner($reset = false)
     else
         $next = 0;
     echo "[" . ($spinner[$last = $next]) . "]";
-}
-
-function slack_post_message($channel, $msg)
-{
-    global $config;
-
-    $data = new StdClass();
-    $data->text = $msg;
-    $data->channel = $channel;
-    $data->username = "initubnt";
-    $payload = json_encode($data);
-    $ch = curl_init($config['slack_incoming_webhook_url']);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Content-Length: ' . strlen($payload)
-    ]);
-    $result = trim(curl_exec($ch));
-    if ($result == 'ok') {
-        return true;
-    }
-    return false;
 }
 
 
