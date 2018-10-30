@@ -268,24 +268,27 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
 
     static $lastMsg = ''; // only for slack integration
 
-    $output = ($output_prepend ? "[$output_prepend] " : '');
+    $output = '';
     if ($type === null) {
         $output .= $msg . ($nl ? "\n" : "");
     } else {
         $output .= "$type: $msg" . ($nl ? "\n" : "");
     }
 
-    if (!$cliOnly && $config['slack_incoming_webhook_url']) {
+    if ($config['slack_incoming_webhook_url'] && !$cliOnly) {
         if (substr($msg, -3) == '...') {
             $lastMsg = $output;
         } else {
             if ($lastMsg) {
                 $output = $lastMsg . $output;
                 $lastMsg = '';
+            } else {
+                $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
             }
             slack_post_message($config['slack_channel'], $output);
         }
     } else if (!$daemonize) {
+        $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
         echo $output;
     }
     if ($type == 'error')
