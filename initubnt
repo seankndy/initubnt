@@ -290,7 +290,7 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
             $socket->write($output);
             $socket->close();
         }
-    } else if (!$daemonize && !$config['slack_incoming_webhook_url']) {
+    } else if (!$daemonize && !file_exists($config['messengerd_sock'])) {
         $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
         echo $output;
     }

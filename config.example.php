@@ -11,6 +11,8 @@ $config = [
     'firmware_dir'      => '/home/sean/initubnt/firmware',
     'config_dir'        => '/home/sean/initubnt/configs',
 
+    'messengerd_sock'   => dirname(__FILE__) . "/messengerd.sock",
+
     // if you want to output to slack instead of CLI
     'slack_incoming_webhook_url' => '',
     'slack_channel'              => '' // #something
