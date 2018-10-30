@@ -280,7 +280,7 @@ while (true)
 
 function msg($type, $msg, $nl = true, $cliOnly = false)
 {
-    global $operating, $config, $output_prepend;
+    global $operating, $config, $output_prepend, $daemonize;
 
     static $lastMsg = ''; // only for slack integration
 
