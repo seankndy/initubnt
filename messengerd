@@ -34,6 +34,7 @@ $daemon->addProducer(new class($socket) implements SeanKndy\Daemon\Tasks\Produce
 
                     public function __construct($client) {
                         $this->client = $client;
+                        $this->client->setBlocking(false);
                     }
 
                     public function init() : void {
