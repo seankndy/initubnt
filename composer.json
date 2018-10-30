@@ -1,0 +1,18 @@
+{
+    "name": "seankndy/initubnt",
+    "description": "Script to aid in initial setup deployments of Ubiquiti Networks station radios",
+    "authors": [
+        {
+            "name": "Sean Kennedy",
+            "email": "sean@kndy.net"
+        }
+    ],
+    "keywords": [
+        "ubiquiti networks",
+        "ubnt"
+    ],
+    "require": {
+        "php": ">=7.1.0",
+        "phpseclib/phpseclib": "^2.0"
+    }
+}

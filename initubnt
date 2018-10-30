@@ -1,5 +1,9 @@
-#!/usr/bin/php
+#!/usr/bin/env php
 <?php
+require('vendor/autoload.php');
+
+use phpseclib\Net\Net_SFTP;
+
 $config = [
     'default_ip'        => '192.168.1.20',
     'default_user'      => 'ubnt',
@@ -10,28 +14,61 @@ $config = [
     'unii_actvn_coname' => 'xxx',
     'unii_actvn_key'    => 'xxx',
     'firmware_dir'      => '/home/sean/initubnt/firmware',
-    'config_dir'        => '/home/sean/initubnt/configs'
+    'config_dir'        => '/home/sean/initubnt/configs',
+
+    // if you want to output to slack instead of CLI
+    'slack_incoming_webhook_url' => '',
+    'slack_channel'              => '' // #something
 ];
 
 $skip_firmware_update = false;
 $skip_unii_activation = false;
 $skip_config_load     = false;
+$daemonize            = false;
 
-$options = getopt('hfcu');
+$optind = 0;
+$options = getopt('hfcud', [], $optind);
 if (isset($options['h']))
     usage();
 
 if (isset($options['f'])) $skip_firmware_update = true;
 if (isset($options['u'])) $skip_unii_activation = true;
 if (isset($options['c'])) $skip_config_load = true;
+if (isset($options['d'])) $daemonize = true;
+
+if (isset($_SERVER['argv'][$optind])) {
+    $output_prepend = $_SERVER['argv'][$optind];
+} else {
+    $output_prepend = '';
+}
 
 if ($skip_firmware_update && $skip_unii_activation && $skip_config_load)
     die("error: all skips activated, nothing to do!\n");
 
+if ($daemonize) {
+    $pid = pcntl_fork();
+    if ($pid == -1) {
+        die("Failed to pcntl_fork()!\n");
+    } else if ($pid) { // parent process
+        exit(0);
+    } else { // child
+        $sid = \posix_setsid();
+
+        fclose(STDIN);
+        fclose(STDOUT);
+        fclose(STDERR);
+        chdir('/');
+
+        $stdIn = fopen('/dev/null', 'r');
+        $stdOut = fopen('/dev/null', 'w');
+        $stdErr = fopen('php://stdout', 'w');
+    }
+}
+
 $operating = true;
 while (true)
 {
-    msg('notice', "Waiting for device @ {$config['default_ip']}... ", false);
+    msg('notice', "Waiting for device @ {$config['default_ip']}...", false, true);
     while (true)
     {
         print_spinner();
@@ -42,11 +79,11 @@ while (true)
         usleep(200000);
     }
     print_spinner(true);
-    echo "ok\n";
-    
+    msg(null, "ok", true, true);
+
     msg('notice', "Device at {$config['default_ip']} is alive, waiting {$config['ssh_init_wait']}s for boot.");
     sleep($config['ssh_init_wait']);
-    
+
     $ussh = new UBNT_SSH($config['default_ip'], $config['default_user'], $config['default_pass']);
     $connected = false;
     for ($try = 1; $try <= $config['ssh_tries']; $try++)
@@ -57,20 +94,21 @@ while (true)
         msg('notice', "SSHing into device...", false);
         if (!$ussh->connect())
         {
-            echo "failed, attempt $try/{$config['ssh_tries']}\n";
+            msg(null, "failed, attempt $try/{$config['ssh_tries']}");
             sleep($config['ssh_try_wait']);
             continue;
         }
         else
         {
             $connected = true;
-            echo "ok\n";
+            msg(null, "ok", true);
             break;
         }
     }
     if (!$connected)
         msg('error', 'failed to connect to ssh on device');
-    
+
+    /* connect() now does login as well
     msg('notice', "Logging into device...", false);
     if (!$ussh->login())
     {
@@ -78,8 +116,9 @@ while (true)
         continue;
     }
     else
-        echo "ok\n";
-    
+        msg(null, "ok", true);
+    */
+
     //
     // fetch model of radio
     //
@@ -103,10 +142,10 @@ while (true)
         {
             if (strstr($model, 'M5'))
                 $model .= ' ' . (isset($stats->host->fwprefix) ? trim($stats->host->fwprefix) : 'XM');
-            echo "ok ($model)\n";
+            msg(null, "ok ($model)");
         }
     }
-    
+
     //
     // update firmware
     //
@@ -121,7 +160,7 @@ while (true)
         msg('notice', "Uploading firmware at $firmware_file and rebooting... ", false);
         if (($ret = ubnt_update_firmware($ussh, $firmware_file)) == -1)
         {
-            echo "no response after update\n";
+            msg(null, "no response after update");
             $operating = false;
             continue;
         }
@@ -131,8 +170,8 @@ while (true)
             continue;
         }
         else
-            echo "ok\n";
-    
+            msg(null, "ok");
+
         //
         // ssh back into radio
         //
@@ -149,20 +188,20 @@ while (true)
             msg('notice', "SSHing into device...", false);
             if (!$ussh->connect())
             {
-                echo "failed, attempt $try/{$config['ssh_tries']}\n";
+                msg(null, "failed, attempt $try/{$config['ssh_tries']}");
                 sleep($config['ssh_try_wait']);
                 continue;
             }
             else
             {
                 $connected = true;
-                echo "ok\n";
+                msg(null, "ok");
                 break;
             }
         }
         if (!$connected)
             msg('error', 'failed to connect to ssh on device');
-        
+
         msg('notice', "Logging into device...", false);
         if (!$ussh->login())
         {
@@ -170,9 +209,9 @@ while (true)
             continue;
         }
         else
-            echo "ok\n";        
+            msg(null, "ok");
     }
-    
+
     if (!$skip_config_load)
     {
         //
@@ -191,7 +230,7 @@ while (true)
             continue;
         }
         else
-            echo "ok\n";
+            msg(null, "ok");
     }
 
     if (!$skip_unii_activation)
@@ -201,12 +240,12 @@ while (true)
         //
         msg('notice', "Checking UNII activation...", false);
         if (($unii_activated_rv = ubnt_is_unii_activated($ussh, $model)) < 0)
-            echo "unknown!\n";
+            msg(null, "unknown!");
         else if ($unii_activated_rv == 1)
-            echo "already active.\n";
+            msg(null, "already active.");
         else
-            echo "not yet activated.\n";
-        
+            msg(null, "not yet activated.");
+
         //
         // apply unii activation
         //
@@ -214,14 +253,14 @@ while (true)
         {
             msg('notice', "Applying UNII activation...", false);
             if (($rv = ubnt_apply_unii_activation($ussh, $model, $config['unii_actvn_coname'], $config['unii_actvn_key'])) < 0)
-                echo "unknown!\n";
+                msg(null, "unknown!");
             else if ($rv == 1)
-                echo "successful activation.\n";
+                msg(null, "successful activation.");
             else if ($rv == 0)
-                echo "appears to have deactivated instead.\n";
+                msg(null, "appears to have deactivated instead.");
         }
     }
-    
+
     if (!$skip_unii_activation || !$skip_config_load)
     {
         //
@@ -229,21 +268,42 @@ while (true)
         //
         msg('notice', "Saving, rebooting... ", false);
         if (($ret = ubnt_apply_config($ussh)) == -1)
-            echo "no response after reboot\n";
+            msg(null, "no response after reboot");
         else if ($ret)
-            echo "ok\n";
+            msg(null, "ok");
     }
-    
+
     $operating = false;
-    
+
     msg('notice', "completed (LAN Speed/Duplex: " .  get_iface_speed_duplex($stats, 'eth0') . ")");
 }
 
-function msg($type, $msg, $nl = true)
+function msg($type, $msg, $nl = true, $cliOnly = false)
 {
-    global $operating;
-    
-    echo "$type: $msg" . ($nl ? "\n" : "");
+    global $operating, $config, $output_prepend;
+
+    static $lastMsg = ''; // only for slack integration
+
+    $output = ($output_prepend ? "[$output_prepend] " : '');
+    if ($type === null) {
+        $output .= $msg . ($nl ? "\n" : "");
+    } else {
+        $output .= "$type: $msg" . ($nl ? "\n" : "");
+    }
+
+    if (!$cliOnly && $config['slack_incoming_webhook_url']) {
+        if (substr($msg, -3) == '...') {
+            $lastMsg = $output;
+        } else {
+            if ($lastMsg) {
+                $output = $lastMsg . $output;
+                $lastMsg = '';
+            }
+            slack_post_message($config['slack_channel'], $output);
+        }
+    } else if (!$daemonize) {
+        echo $output;
+    }
     if ($type == 'error')
         $operating = false;
 }
@@ -263,9 +323,9 @@ function ubnt_is_alive($ip)
 function ubnt_get_stats(UBNT_SSH $ussh, $ip = null)
 {
     global $config;
-    
+
     if (!$ip) $ip = $config['default_ip'];
-    
+
     $output = $ussh->cmd("/usr/www/status.cgi");
     $output = preg_replace('/^Content\-Type:\s+(.+?)[\r\n]+/im', '', $output);
     if ($stats = json_decode($output))
@@ -416,7 +476,7 @@ function ubnt_apply_config(UBNT_SSH $ussh)
     sleep(3);
     $ussh->cmd("reboot");
     sleep(5);
-    
+
     // try 90 times (wait for come back)
     $max = 90;
     for ($i = 1; $i <= $max && !ubnt_is_alive($ussh->getIp()); $i++)
@@ -425,10 +485,10 @@ function ubnt_apply_config(UBNT_SSH $ussh)
         usleep(200000);
     }
     print_spinner(true);
-    
+
     if (!ubnt_is_alive($ussh->getIp()) && $i == $max+1)
            return -1;
-    
+
     return 1;
 }
 
@@ -438,62 +498,98 @@ class UBNT_SSH
     private $user;
     private $pass;
     private $ssh;
-    
+
     public function __construct($ip, $user, $pass)
     {
         $this->ip = $ip;
         $this->user = $user;
         $this->pass = $pass;
     }
-    
+
     public function getIp()
     {
         return $this->ip;
     }
-    
+
     public function connect()
     {
+        $this->ssh = new Net_SFTP($this->ip, 22, 5);
+        if (!$this->ssh->login($this->user, $this->pass)) {
+            $this->ssh = null;
+            return false;
+        }
+        return true;
+        /*
+                if ($this->ssh->login($username, $password)) {
         if (!($this->ssh = @ssh2_connect($this->ip, 22)))
             return false;
+
         return true;
+        */
     }
-    
+
     public function login()
     {
-        if (!@ssh2_auth_password($this->ssh, $this->user, $this->pass))
-            return false;        
+        if (!$this->ssh->login($this->user, $this->pass)) {
+            return false;
+        }
         return true;
+        /*
+        if (!@ssh2_auth_password($this->ssh, $this->user, $this->pass))
+            return false;
+        return true;
+        */
     }
-    
+
     public function disconnect()
     {
         $this->ssh = null;
     }
-    
+
     public function cmd($cmd)
     {
         if (!$this->ssh) return false;
-        
+
+        $output = $this->ssh->exec($cmd);
+        return $output;
+
+        /*
+
         $stream = ssh2_exec($this->ssh, $cmd);
         stream_set_blocking($stream, true);
         $data = '';
         while ($buffer = fread($stream, 4096))
             $data .= $buffer;
         fclose($stream);
-        
+
         return $data;
+        */
     }
-    
+
     public function send_file($local, $remote, $mode = 0644)
     {
         if (!file_exists($local))
             return false;
-        return ssh2_scp_send($this->ssh, $local, $remote, $mode);
+
+        if ($this->ssh->put($remote, $local, SFTP::SOURCE_LOCAL_FILE)) {
+            if (!$this->ssh->chmod($mode, $remote)) {
+                return true;
+            }
+        }
+        return false;
+
+        //return ssh2_scp_send($this->ssh, $local, $remote, $mode);
     }
 }
 
 function print_spinner($reset = false)
 {
+    global $config, $daemonize;
+
+    if ($config['slack_incoming_webhook_url'] || $daemonize) {
+        return;
+    }
+
     $spinner = ["|", "/", "-", "\\"];
     static $last = null;
     if ($reset)
@@ -513,15 +609,39 @@ function print_spinner($reset = false)
     echo "[" . ($spinner[$last = $next]) . "]";
 }
 
-function usage()
+function slack_post_message($channel, $msg)
 {
-    die(
-        "{$_SERVER['argv'][0]} [-f] [-c] [-u] [-h]\n" .
-        "    -f Skip firmware update\n" .
-        "    -c Skip config load\n" .
-        "    -u Skip UNII activation\n" .
-        "    -h Show this help\n"
-    );
+    global $config;
+
+    $data = new StdClass();
+    $data->text = $msg;
+    $data->channel = $channel;
+    $data->username = "initubnt";
+    $payload = json_encode($data);
+    $ch = curl_init($config['slack_incoming_webhook_url']);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($payload)
+    ]);
+    $result = trim(curl_exec($ch));
+    if ($result == 'ok') {
+        return true;
+    }
+    return false;
 }
 
 
+function usage()
+{
+    die(
+        "{$_SERVER['argv'][0]} [-f] [-c] [-u] [-h] [output prepend string]\n" .
+        "    -f Skip firmware update\n" .
+        "    -c Skip config load\n" .
+        "    -u Skip UNII activation\n" .
+        "    -d Daemonize\n" .
+        "    -h Show this help\n"
+    );
+}
