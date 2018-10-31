@@ -277,7 +277,7 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
         $output .= "$type: $msg" . ($nl ? "\n" : "");
     }
 
-    if (file_exists($config['messengerd_sock']) && !$cliOnly) {
+    if (file_exists($config['slackmsgd_sock']) && !$cliOnly) {
         if (substr($msg, -3) == '...') {
             $lastMsg = $output;
         } else {
@@ -288,11 +288,11 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
                 $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
             }
 
-            $socket = (new \Socket\Raw\Factory())->createClient('unix://' . $config['messengerd_sock']);
+            $socket = (new \Socket\Raw\Factory())->createClient('unix://' . $config['slackmsgd_sock']);
             $socket->write($output);
             $socket->close();
         }
-    } else if (!$daemonize && !file_exists($config['messengerd_sock'])) {
+    } else if (!$daemonize && !file_exists($config['slackmsgd_sock'])) {
         $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
         echo $output;
     }
