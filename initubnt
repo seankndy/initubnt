@@ -141,7 +141,7 @@ while (true)
         //msg('notice', "Uploading firmware at $firmware_file and rebooting...", false);
         if (($ret = ubnt_update_firmware($ussh, $firmware_file)) == -1)
         {
-            msg(null, "No response after firmware upgrade.");
+            msg('notice', "No response after firmware upgrade.");
             $operating = false;
             continue;
         }
@@ -151,7 +151,7 @@ while (true)
             continue;
         }
         else
-            msg(null, "Firmware update completed.");
+            msg('notice', "Firmware update completed.");
 
         //
         // ssh back into radio
@@ -187,7 +187,7 @@ while (true)
         msg('notice', "Logging into device...", false);
         if (!$ussh->login())
         {
-            msg('error', 'failed to login to ssh on device');
+            msg('error', 'Failed to login to ssh on device.');
             continue;
         }
         else
@@ -251,9 +251,9 @@ while (true)
         //
         msg('notice', "Saving and will then reboot.", false);
         if (($ret = ubnt_apply_config($ussh)) == -1)
-            msg(null, "No response after reboot.");
+            msg('notice', "No response after reboot.");
         else if ($ret)
-            msg(null, "Save/reboot completed.");
+            msg('notice', "Save/reboot completed.");
     }
 
     $operating = false;
