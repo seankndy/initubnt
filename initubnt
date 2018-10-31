@@ -284,7 +284,7 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
                 $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
             }
 
-            slack_post_message($msg);
+            slack_post_message($output);
         }
     } else if (!$daemonize && !$config['slack_incoming_webhook_url']) {
         $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
