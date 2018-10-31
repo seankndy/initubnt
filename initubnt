@@ -255,7 +255,7 @@ while (true)
         //
         // apply config, reboot
         //
-        msg('notice', "Saving, rebooting... ", false);
+        msg('notice', "Saving, rebooting...", false);
         if (($ret = ubnt_apply_config($ussh)) == -1)
             msg(null, "no response after reboot");
         else if ($ret)
@@ -330,6 +330,10 @@ function ubnt_get_stats(UBNT_SSH $ussh, $ip = null)
 
 function get_iface_speed_duplex($stats, $iface, $color = true)
 {
+    if (file_exists($config['slackmsgd_sock']) || $daemonize) {
+        $color = false;
+    }
+
     if (!isset($stats->interfaces)) return "";
     foreach ($stats->interfaces as $i)
     {
@@ -567,7 +571,7 @@ function print_spinner($reset = false)
 {
     global $config, $daemonize;
 
-    if ($config['slack_incoming_webhook_url'] || $daemonize) {
+    if (file_exists($config['slackmsgd_sock']) || $daemonize) {
         return;
     }
 
