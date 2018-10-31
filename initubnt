@@ -273,7 +273,7 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
         $output .= "$type: $msg" . ($nl ? "\n" : "");
     }
 
-    if (file_exists($config['slackmsgd_sock']) && !$cliOnly) {
+    if ($config['slack_incoming_webhook_url'] && !$cliOnly) {
         if (substr($msg, -3) == '...') {
             $lastMsg = $output;
         } else {
@@ -284,11 +284,9 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
                 $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
             }
 
-            $socket = (new \Socket\Raw\Factory())->createClient('unix://' . $config['slackmsgd_sock']);
-            $socket->write($output);
-            $socket->close();
+            slack_post_message($msg);
         }
-    } else if (!$daemonize && !file_exists($config['slackmsgd_sock'])) {
+    } else if (!$daemonize && !$config['slack_incoming_webhook_url']) {
         $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
         echo $output;
     }
@@ -550,7 +548,7 @@ function print_spinner($reset = false)
 {
     global $config, $daemonize;
 
-    if (file_exists($config['slackmsgd_sock']) || $daemonize) {
+    if ($config['slack_incoming_webhook_url'] || $daemonize) {
         return;
     }
 
@@ -573,6 +571,28 @@ function print_spinner($reset = false)
     echo "[" . ($spinner[$last = $next]) . "]";
 }
 
+function slack_post_message($msg) {
+    global $config;
+
+    $data = new StdClass();
+    $data->text = $msg;
+    $data->channel = $config['slack_channel'];
+    $data->username = "initubnt";
+    $payload = json_encode($data);
+    $ch = curl_init($config['slack_incoming_webhook_url']);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($payload)
+    ]);
+    $result = trim(curl_exec($ch));
+    if ($result == 'ok') {
+        return true;
+    }
+    return false;
+}
 
 function usage()
 {
