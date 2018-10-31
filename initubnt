@@ -553,7 +553,7 @@ class UBNT_SSH
 
         $scp = new SCP($this->ssh);
 
-        if ($scp->put($remote, $local, SFTP::SOURCE_LOCAL_FILE)) {
+        if ($scp->put($remote, $local, SCP::SOURCE_LOCAL_FILE)) {
             return true;
         }
         return false;
