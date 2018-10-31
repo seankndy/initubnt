@@ -3,10 +3,6 @@
 require('vendor/autoload.php');
 require('config.php');
 
-use phpseclib\Net\SSH2;
-use phpseclib\Net\SCP;
-
-
 $skip_firmware_update = false;
 $skip_unii_activation = false;
 $skip_config_load     = false;
@@ -94,7 +90,6 @@ while (true)
     if (!$connected)
         msg('error', 'failed to connect to ssh on device');
 
-    /* connect() now does login as well
     msg('notice', "Logging into device...", false);
     if (!$ussh->login())
     {
@@ -103,7 +98,6 @@ while (true)
     }
     else
         msg(null, "ok", true);
-    */
 
     //
     // fetch model of radio
@@ -189,7 +183,6 @@ while (true)
         if (!$connected)
             msg('error', 'failed to connect to ssh on device');
 
-/*
         msg('notice', "Logging into device...", false);
         if (!$ussh->login())
         {
@@ -198,7 +191,7 @@ while (true)
         }
         else
             msg(null, "ok");
-*/
+
     }
 
     if (!$skip_config_load)
@@ -331,7 +324,7 @@ function ubnt_get_stats(UBNT_SSH $ussh, $ip = null)
 function get_iface_speed_duplex($stats, $iface, $color = true)
 {
     global $config, $daemonize;
-    
+
     if (file_exists($config['slackmsgd_sock']) || $daemonize) {
         $color = false;
     }
@@ -514,32 +507,16 @@ class UBNT_SSH
 
     public function connect()
     {
-        $this->ssh = new SSH2($this->ip, 22, 5);
-        if (!$this->ssh->login($this->user, $this->pass)) {
-            $this->ssh = null;
-            return false;
-        }
-        return true;
-        /*
-                if ($this->ssh->login($username, $password)) {
         if (!($this->ssh = @ssh2_connect($this->ip, 22)))
             return false;
-
         return true;
-        */
     }
 
     public function login()
     {
-        if (!$this->ssh->login($this->user, $this->pass)) {
-            return false;
-        }
-        return true;
-        /*
         if (!@ssh2_auth_password($this->ssh, $this->user, $this->pass))
             return false;
         return true;
-        */
     }
 
     public function disconnect()
@@ -551,21 +528,21 @@ class UBNT_SSH
     {
         if (!$this->ssh) return false;
 
-        $output = $this->ssh->exec($cmd);
-        return $output;
+        $stream = ssh2_exec($this->ssh, $cmd);
+        stream_set_blocking($stream, true);
+        $data = '';
+        while ($buffer = fread($stream, 4096))
+            $data .= $buffer;
+        fclose($stream);
+
+        return $data;
     }
 
-    public function send_file($local, $remote)
+    public function send_file($local, $remote, $mode = 0644)
     {
         if (!file_exists($local))
             return false;
-
-        $scp = new SCP($this->ssh);
-
-        if ($scp->put($remote, $local, SCP::SOURCE_LOCAL_FILE)) {
-            return true;
-        }
-        return false;
+        return ssh2_scp_send($this->ssh, $local, $remote, $mode);
     }
 }
 

@@ -20,7 +20,6 @@
     "require": {
         "seankndy/Daemon": "dev-master",
         "php": ">=7.1.0",
-        "phpseclib/phpseclib": "^2.0",
         "clue/socket-raw": "^1.3"
     }
 }
