@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
-require('vendor/autoload.php');
-require('config.php');
+require(dirname(__FILE__).'/vendor/autoload.php');
+require(dirname(__FILE__).'/config.php');
 
 $skip_firmware_update = false;
 $skip_unii_activation = false;
