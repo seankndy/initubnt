@@ -330,6 +330,8 @@ function ubnt_get_stats(UBNT_SSH $ussh, $ip = null)
 
 function get_iface_speed_duplex($stats, $iface, $color = true)
 {
+    global $config, $daemonize;
+    
     if (file_exists($config['slackmsgd_sock']) || $daemonize) {
         $color = false;
     }
