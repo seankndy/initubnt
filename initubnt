@@ -143,7 +143,7 @@ while (true)
             msg('error', "Firmware file non-existant: $firmware_file");
             continue;
         }
-        msg('notice', "Uploading firmware at $firmware_file and rebooting... ", false);
+        msg('notice', "Uploading firmware at $firmware_file and rebooting...", false);
         if (($ret = ubnt_update_firmware($ussh, $firmware_file)) == -1)
         {
             msg(null, "no response after update");
@@ -161,9 +161,10 @@ while (true)
         //
         // ssh back into radio
         //
-        msg('notice', "Device at {$config['default_ip']} is alive, waiting {$config['ssh_init_wait']}s for boot.");
+        msg('notice', "Device at {$config['default_ip']} is alive after firmware update, waiting {$config['ssh_init_wait']}s for boot.");
         sleep($config['ssh_init_wait']);
 
+        $ussh = null;
         $ussh = new UBNT_SSH($config['default_ip'], $config['default_user'], $config['default_pass']);
         $connected = false;
         for ($try = 1; $try <= $config['ssh_tries']; $try++)
@@ -188,6 +189,7 @@ while (true)
         if (!$connected)
             msg('error', 'failed to connect to ssh on device');
 
+/*
         msg('notice', "Logging into device...", false);
         if (!$ussh->login())
         {
@@ -196,6 +198,7 @@ while (true)
         }
         else
             msg(null, "ok");
+*/
     }
 
     if (!$skip_config_load)
