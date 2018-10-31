@@ -282,7 +282,7 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
             $lastMsg = $output;
         } else {
             if ($lastMsg) {
-                $output = $lastMsg . $output;
+                $output = ($output_prepend ? "[$output_prepend] " : '') . $lastMsg . $output;
                 $lastMsg = '';
             } else {
                 $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
@@ -544,18 +544,6 @@ class UBNT_SSH
 
         $output = $this->ssh->exec($cmd);
         return $output;
-
-        /*
-
-        $stream = ssh2_exec($this->ssh, $cmd);
-        stream_set_blocking($stream, true);
-        $data = '';
-        while ($buffer = fread($stream, 4096))
-            $data .= $buffer;
-        fclose($stream);
-
-        return $data;
-        */
     }
 
     public function send_file($local, $remote)
@@ -569,8 +557,6 @@ class UBNT_SSH
             return true;
         }
         return false;
-
-        //return ssh2_scp_send($this->ssh, $local, $remote, $mode);
     }
 }
 
