@@ -7,9 +7,11 @@ $skip_firmware_update = false;
 $skip_unii_activation = false;
 $skip_config_load     = false;
 $daemonize            = false;
+$slack_channel        = $config['slack_channel'];
+$quiet_mode           = false;
 
 $optind = 0;
-$options = getopt('hfcud', [], $optind);
+$options = getopt('hfcudqs:', [], $optind);
 if (isset($options['h']))
     usage();
 
@@ -17,6 +19,8 @@ if (isset($options['f'])) $skip_firmware_update = true;
 if (isset($options['u'])) $skip_unii_activation = true;
 if (isset($options['c'])) $skip_config_load = true;
 if (isset($options['d'])) $daemonize = true;
+if (isset($options['q'])) $quiet_mode = true;
+if (isset($options['s'])) $slack_channel = $options['s'];
 
 if (isset($_SERVER['argv'][$optind])) {
     $output_prepend = $_SERVER['argv'][$optind];
@@ -50,7 +54,7 @@ if ($daemonize) {
 $operating = true;
 while (true)
 {
-    msg('notice', "Waiting for device @ {$config['default_ip']}...", false, true);
+    if (!$quiet_mode) msg('notice', "Waiting for device @ {$config['default_ip']}...", false, true);
     while (true)
     {
         print_spinner();
@@ -61,9 +65,12 @@ while (true)
         usleep(200000);
     }
     print_spinner(true);
-    msg(null, "ok", true, true);
+    if (!$quiet_mode) msg(null, "ok", true, true);
 
-    msg('notice', "Device at {$config['default_ip']} is alive, waiting {$config['ssh_init_wait']}s for boot.");
+    if (!$quiet_mode)
+        msg('notice', "Device at {$config['default_ip']} is alive, waiting {$config['ssh_init_wait']}s for boot.");
+    else
+        msg('notice', "Device recognized.");
     sleep($config['ssh_init_wait']);
 
     $ussh = new UBNT_SSH($config['default_ip'], $config['default_user'], $config['default_pass']);
@@ -73,39 +80,45 @@ while (true)
         //
         // ssh into radio
         //
-        msg('notice', "SSHing into device...", false);
+        if (!$quiet_mode) msg('notice', "SSHing into device...", false);
         if (!$ussh->connect())
         {
-            msg(null, "failed, attempt $try/{$config['ssh_tries']}");
+            if (!$quiet_mode) msg(null, "failed, attempt $try/{$config['ssh_tries']}");
             sleep($config['ssh_try_wait']);
             continue;
         }
         else
         {
             $connected = true;
-            msg(null, "ok", true);
+            if (!$quiet_mode) msg(null, "ok", true);
             break;
         }
     }
     if (!$connected)
-        msg('error', 'failed to connect to ssh on device');
+        if (!$quiet_mode)
+            msg('error', 'failed to connect to ssh on device');
+        else
+            msg('error', 'Could not login to device.');
 
-    msg('notice', "Logging into device...", false);
+    if (!$quiet_mode) msg('notice', "Logging into device...", false);
     if (!$ussh->login())
     {
-        msg('error', 'failed to login to ssh on device');
+        if (!$quiet_mode)
+            msg('error', 'failed to login to ssh on device');
+        else
+            msg('error', "Could not login to device.");
         continue;
     }
     else
-        msg(null, "ok", true);
+        if (!$quiet_mode) msg(null, "ok", true);
 
     //
     // fetch model of radio
     //
-    msg('notice', "Fetching stats of device...", false);
+    if (!$quiet_mode) msg('notice', "Fetching stats of device...", false);
     if (!($stats = ubnt_get_stats($ussh)))
     {
-        msg('error', "failed to get stats from device");
+        msg('error', "Failed to get stats from device");
         continue;
     }
     else
@@ -116,13 +129,13 @@ while (true)
         else if (isset($stats->host->hostname))
             $model = trim($stats->host->hostname);
         else
-            msg('error', 'failed to determine model');
+            msg('error', 'Failed to determine model.');
 
         if ($model)
         {
             if (strstr($model, 'M5'))
                 $model .= ' ' . (isset($stats->host->fwprefix) ? trim($stats->host->fwprefix) : 'XM');
-            msg(null, "ok ($model)");
+            if (!$quiet_mode) msg(null, "ok ($model)");
         }
     }
 
@@ -137,12 +150,11 @@ while (true)
             msg('error', "Firmware file non-existant: $firmware_file");
             continue;
         }
-        msg('notice', "Begining upload of firmware at $firmware_file and will then reboot.", false);
+        if (!$quiet_mode) msg('notice', "Begining upload of firmware at $firmware_file and will then reboot.", false);
         //msg('notice', "Uploading firmware at $firmware_file and rebooting...", false);
         if (($ret = ubnt_update_firmware($ussh, $firmware_file)) == -1)
         {
-            msg('notice', "No response after firmware upgrade.");
-            $operating = false;
+            msg('error', "No response after firmware upgrade.");
             continue;
         }
         else if ($ret == 0)
@@ -151,12 +163,12 @@ while (true)
             continue;
         }
         else
-            msg('notice', "Firmware update completed.");
+            if (!$quiet_mode) msg('notice', "Firmware update completed.");
 
         //
         // ssh back into radio
         //
-        msg('notice', "Device at {$config['default_ip']} is alive after firmware update, waiting {$config['ssh_init_wait']}s for boot.");
+        if (!$quiet_mode) msg('notice', "Device at {$config['default_ip']} is alive after firmware update, waiting {$config['ssh_init_wait']}s for boot.");
         sleep($config['ssh_init_wait']);
 
         $ussh = null;
@@ -167,31 +179,35 @@ while (true)
             //
             // ssh into radio
             //
-            msg('notice', "SSHing into device...", false);
+            if (!$quiet_mode) msg('notice', "SSHing into device...", false);
             if (!$ussh->connect())
             {
-                msg(null, "failed, attempt $try/{$config['ssh_tries']}");
+                if (!$quiet_mode) msg(null, "failed, attempt $try/{$config['ssh_tries']}");
                 sleep($config['ssh_try_wait']);
                 continue;
             }
             else
             {
                 $connected = true;
-                msg(null, "ok");
+                if (!$quiet_mode) msg(null, "ok");
                 break;
             }
         }
         if (!$connected)
-            msg('error', 'failed to connect to ssh on device');
+            if (!$quiet_mode)
+                msg('error', 'failed to connect to ssh on device');
+            else
+                msg('error', 'Could not login to device.');
 
-        msg('notice', "Logging into device...", false);
+
+        if (!$quiet_mode) msg('notice', "Logging into device...", false);
         if (!$ussh->login())
         {
             msg('error', 'Failed to login to ssh on device.');
             continue;
         }
         else
-            msg(null, "ok");
+            if (!$quiet_mode) msg(null, "ok");
 
     }
 
@@ -206,14 +222,14 @@ while (true)
             msg('error', "Config file non-existant: $config_file");
             continue;
         }
-        msg('notice', "Uploading config at $config_file...", false);
+        if (!$quiet_mode) msg('notice', "Uploading config at $config_file...", false);
         if (!ubnt_upload_config($ussh, $config_file))
         {
-            msg('error', 'failed to upload config file to device');
+            msg('error', 'Failed to upload config file to device.');
             continue;
         }
         else
-            msg(null, "ok");
+            if (!$quiet_mode) msg(null, "ok");
     }
 
     if (!$skip_unii_activation)
@@ -221,26 +237,26 @@ while (true)
         //
         // check unii activation
         //
-        msg('notice', "Checking UNII activation...", false);
+        if (!$quiet_mode) msg('notice', "Checking UNII activation...", false);
         if (($unii_activated_rv = ubnt_is_unii_activated($ussh, $model)) < 0)
-            msg(null, "unknown!");
+            if (!$quiet_mode) msg(null, "unknown!");
         else if ($unii_activated_rv == 1)
-            msg(null, "already active.");
+            if (!$quiet_mode) msg(null, "already active.");
         else
-            msg(null, "not yet activated.");
+            if (!$quiet_mode) msg(null, "not yet activated.");
 
         //
         // apply unii activation
         //
         if ($unii_activated_rv != 1)
         {
-            msg('notice', "Applying UNII activation...", false);
+            if (!$quiet_mode) msg('notice', "Applying UNII activation...", false);
             if (($rv = ubnt_apply_unii_activation($ussh, $model, $config['unii_actvn_coname'], $config['unii_actvn_key'])) < 0)
-                msg(null, "unknown!");
+                if (!$quiet_mode) msg(null, "unknown!");
             else if ($rv == 1)
-                msg(null, "successful activation.");
+                if (!$quiet_mode) msg(null, "successful activation.");
             else if ($rv == 0)
-                msg(null, "appears to have deactivated instead.");
+                if (!$quiet_mode) msg(null, "appears to have deactivated instead.");
         }
     }
 
@@ -249,11 +265,11 @@ while (true)
         //
         // apply config, reboot
         //
-        msg('notice', "Saving and will then reboot.", false);
+        if (!$quiet_mode) msg('notice', "Saving and will then reboot.", false);
         if (($ret = ubnt_apply_config($ussh)) == -1)
-            msg('notice', "No response after reboot.");
+            if (!$quiet_mode) msg('notice', "No response from device after reboot.");
         else if ($ret)
-            msg('notice', "Save/reboot completed.");
+            if (!$quiet_mode) msg('notice', "Save/reboot completed.");
     }
 
     $operating = false;
@@ -574,10 +590,11 @@ function print_spinner($reset = false)
 
 function slack_post_message($msg) {
     global $config;
+    global $slack_channel;
 
     $data = new StdClass();
     $data->text = $msg;
-    $data->channel = $config['slack_channel'];
+    $data->channel = $slack_channel;
     $data->username = "initubnt";
     $payload = json_encode($data);
     $ch = curl_init($config['slack_incoming_webhook_url']);
@@ -598,10 +615,12 @@ function slack_post_message($msg) {
 function usage()
 {
     die(
-        "{$_SERVER['argv'][0]} [-f] [-c] [-u] [-h] [output prepend string]\n" .
+        "{$_SERVER['argv'][0]} [-s] [-q] [-f] [-c] [-u] [-h] [output prepend string]\n" .
         "    -f Skip firmware update\n" .
         "    -c Skip config load\n" .
         "    -u Skip UNII activation\n" .
+        "    -s <slack channel>\n" .
+        "    -q Enable quiet mode\n" .
         "    -d Daemonize\n" .
         "    -h Show this help\n"
     );
