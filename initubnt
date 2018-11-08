@@ -64,7 +64,7 @@ while (true)
             $operating = true;
         else if ($operating)
             break;
-        usleep(200000);
+        usleep(2000000);
     }
     print_spinner(true);
     if (!$quiet_mode) msg(null, "ok", true, true);
