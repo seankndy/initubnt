@@ -85,7 +85,7 @@ while (true)
     //
     // ssh to device
     //
-    if (!($ussh = new ubnt_ssh_login($config['default_ip'], $config['default_user'], $config['default_pass']))) {
+    if (!($ussh = ubnt_ssh_login($config['default_ip'], $config['default_user'], $config['default_pass']))) {
         continue;
     }
 
@@ -149,7 +149,7 @@ while (true)
         sleep($config['ssh_init_wait']);
 
         $ussh = null;
-        if (!($ussh = new ubnt_ssh_login($config['default_ip'], $config['default_user'], $config['default_pass']))) {
+        if (!($ussh = ubnt_ssh_login($config['default_ip'], $config['default_user'], $config['default_pass']))) {
             continue;
         }
     }
