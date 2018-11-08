@@ -58,6 +58,8 @@ while (true)
     while (true)
     {
         print_spinner();
+        // if we cannot reach the ubnt anymore, then we are BACK to "operating"
+        // and waiting for a new ubnt to be plugged in.
         if (!ubnt_is_alive($config['default_ip']))
             $operating = true;
         else if ($operating)
@@ -95,10 +97,13 @@ while (true)
         }
     }
     if (!$connected)
+    {
         if (!$quiet_mode)
             msg('error', 'failed to connect to ssh on device');
         else
-            msg('error', 'Could not login to device.');
+            msg('error', 'Could not connect (ssh) to device.');
+        continue;
+    }
 
     if (!$quiet_mode) msg('notice', "Logging into device...", false);
     if (!$ussh->login())
@@ -118,7 +123,7 @@ while (true)
     if (!$quiet_mode) msg('notice', "Fetching stats of device...", false);
     if (!($stats = ubnt_get_stats($ussh)))
     {
-        msg('error', "Failed to get stats from device");
+        msg('error', "Failed to get stats from device.");
         continue;
     }
     else
@@ -163,7 +168,7 @@ while (true)
             continue;
         }
         else
-            if (!$quiet_mode) msg('notice', "Firmware update completed.");
+            msg('notice', "Firmware update completed.");
 
         //
         // ssh back into radio
@@ -194,21 +199,23 @@ while (true)
             }
         }
         if (!$connected)
+        {
             if (!$quiet_mode)
-                msg('error', 'failed to connect to ssh on device');
+                msg('error', 'failed to login to ssh on device after firmware update.');
             else
-                msg('error', 'Could not login to device.');
-
+                msg('error', "Could not login to device after firmware update.");
+            continue;
+        }
 
         if (!$quiet_mode) msg('notice', "Logging into device...", false);
         if (!$ussh->login())
         {
-            msg('error', 'Failed to login to ssh on device.');
+            msg('error', 'Failed to login (ssh) to device.');
             continue;
         }
         else
-            if (!$quiet_mode) msg(null, "ok");
-
+            if (!$quiet_mode)
+                msg(null, "ok");
     }
 
     if (!$skip_config_load)
@@ -229,7 +236,10 @@ while (true)
             continue;
         }
         else
-            if (!$quiet_mode) msg(null, "ok");
+            if (!$quiet_mode)
+                msg(null, "ok");
+            else
+                msg('notice', "Configuration loaded.");
     }
 
     if (!$skip_unii_activation)
@@ -269,7 +279,7 @@ while (true)
         if (($ret = ubnt_apply_config($ussh)) == -1)
             if (!$quiet_mode) msg('notice', "No response from device after reboot.");
         else if ($ret)
-            if (!$quiet_mode) msg('notice', "Save/reboot completed.");
+            msg('notice', "Save/reboot completed.");
     }
 
     $operating = false;
