@@ -7,7 +7,7 @@ $skip_firmware_update = false;
 $skip_unii_activation = false;
 $skip_config_load     = false;
 $daemonize            = false;
-$slack_channel        = $config['slack_channel'];
+$slack_channel        = '';
 $quiet_mode           = false;
 
 $optind = 0;
@@ -78,8 +78,6 @@ while (true)
 
     if (!$quiet_mode)
         msg('notice', "Device at {$config['default_ip']} is alive, waiting {$config['ssh_init_wait']}s for boot.");
-    else
-        msg('notice', "Device recognized.");
     sleep($config['ssh_init_wait']);
 
     //
@@ -112,7 +110,11 @@ while (true)
         {
             if (strstr($model, 'M5'))
                 $model .= ' ' . (isset($stats->host->fwprefix) ? trim($stats->host->fwprefix) : 'XM');
-            if (!$quiet_mode) msg(null, "ok ($model)");
+            
+            if (!$quiet_mode)
+                msg(null, "ok ($model)");
+            else
+                msg('notice', "Device recognized ($model).");
         }
     }
 
@@ -226,6 +228,7 @@ while (true)
 function msg($type, $msg, $nl = true, $cliOnly = false)
 {
     global $operating, $config, $output_prepend, $daemonize;
+    global $slack_channel;
 
     static $lastMsg = '';
 
@@ -239,7 +242,9 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
         $output .= "$type: $msg" . ($nl ? "\n" : "");
     }
 
-    if ($config['slack_incoming_webhook_url'] && !$cliOnly) {
+    $useSlack = $config['slack_incoming_webhook_url'] && $slack_channel;
+
+    if ($useSlack && !$cliOnly) {
         if (substr($msg, -3) == '...') {
             $lastMsg = $output;
         } else {
@@ -252,7 +257,7 @@ function msg($type, $msg, $nl = true, $cliOnly = false)
 
             slack_post_message($output);
         }
-    } else if (!$daemonize && !$config['slack_incoming_webhook_url']) {
+    } else if (!$daemonize && !$useSlack) {
         $output = ($output_prepend ? "[$output_prepend] " : '') . $output;
         echo $output;
     }
@@ -536,24 +541,24 @@ class UBNT_SSH
         $this->ssh = null;
     }
 
-    public function cmd($cmd, $wait = 0)
+    public function cmd($cmd, $wait = 30)
     {
         if (!$this->ssh) return false;
 
         $stream = ssh2_exec($this->ssh, $cmd);
         stream_set_blocking($stream, false);
-        sleep(1);
         $data = '';
-        for ($i = 0; $i <= $wait; $i++)
-        {
-            while ($buffer = fread($stream, 4096))
-                $data .= $buffer;
-
-            if ($wait)
-                sleep(1);
+        for ($i = 0; $i < ceil($wait/.2); $i++) {
+            if (($buf = fread($stream, 1024)) !== false) {
+                $data .= $buf;
+            }
+            if ($buf === false || feof($stream)) {
+                fclose($stream);
+                return $data;
+            }
+            usleep(20000);
         }
         fclose($stream);
-
         return $data;
     }
 
