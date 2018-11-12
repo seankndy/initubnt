@@ -321,7 +321,7 @@ function ubnt_update_firmware(UBNT_SSH $ussh, $file)
 {
     if ($ussh->send_file($file, "/tmp/fwupdate.bin"))
     {
-        $output = $ussh->cmd("/sbin/fwupdate -m");
+        $output = $ussh->cmd("/sbin/fwupdate -m", 20);
         sleep(5);
         // try 120 times for device to come back
         $max = 120;
@@ -536,7 +536,7 @@ class UBNT_SSH
         $this->ssh = null;
     }
 
-    public function cmd($cmd)
+    public function cmd($cmd, $wait = 0)
     {
         if (!$this->ssh) return false;
 
@@ -544,8 +544,14 @@ class UBNT_SSH
         stream_set_blocking($stream, false);
         sleep(1);
         $data = '';
-        while ($buffer = fread($stream, 4096))
-            $data .= $buffer;
+        for ($i = 0; $i <= $wait; $i++)
+        {
+            while ($buffer = fread($stream, 4096))
+                $data .= $buffer;
+
+            if ($wait)
+                sleep(1);
+        }
         fclose($stream);
 
         return $data;
