@@ -541,7 +541,8 @@ class UBNT_SSH
         if (!$this->ssh) return false;
 
         $stream = ssh2_exec($this->ssh, $cmd);
-        stream_set_blocking($stream, true);
+        stream_set_blocking($stream, false);
+        sleep(1);
         $data = '';
         while ($buffer = fread($stream, 4096))
             $data .= $buffer;
