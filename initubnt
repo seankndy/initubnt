@@ -110,7 +110,7 @@ while (true)
         {
             if (strstr($model, 'M5'))
                 $model .= ' ' . (isset($stats->host->fwprefix) ? trim($stats->host->fwprefix) : 'XM');
-            
+
             if (!$quiet_mode)
                 msg(null, "ok ($model)");
             else
@@ -546,17 +546,10 @@ class UBNT_SSH
         if (!$this->ssh) return false;
 
         $stream = ssh2_exec($this->ssh, $cmd);
-        stream_set_blocking($stream, false);
+        stream_set_blocking($stream, true)
         $data = '';
-        for ($i = 0; $i < ceil($wait/.2); $i++) {
-            if (($buf = fread($stream, 1024)) !== false) {
-                $data .= $buf;
-            }
-            if ($buf === false || feof($stream)) {
-                fclose($stream);
-                return $data;
-            }
-            usleep(20000);
+        while ($buf = fread($stream, 4096)) {
+            $data .= $buf;
         }
         fclose($stream);
         return $data;
